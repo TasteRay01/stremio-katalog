@@ -8,11 +8,13 @@ if (!KEY) {
 
 const API = "https://api.themoviedb.org/3";
 const IMG = "https://image.tmdb.org/t/p/w342";
-const TTL = 6 * 60 * 60 * 1000;
+const TTL = 6 * 60 * 60 * 1000; // rifreskim çdo 6 orë
+const MIN_YEAR = 1990; // nuk shfaqen tituj para këtij viti
 
 const LATAM = "MX|AR|BR|CO|CL|PE|UY|VE|EC|BO|PY|CU|CR|PA|DO|GT|PR|HN|NI|SV";
-const G = { action: 28, comedy: 35, thriller: 53, crime: 80, horror: 27, drama: 18 };
+const G = { action: 28, comedy: 35, thriller: 53, crime: 80, horror: 27, drama: 18, romance: 10749 };
 
+// Fjalë kyçe të TMDB që gjenden automatikisht
 const KW = {
   heist: { queries: ["heist"], re: /heist/ },
   bl: { queries: ["boys love", "boys' love"], re: /boys.{0,3}love/ },
@@ -20,6 +22,7 @@ const KW = {
     queries: ["lgbt", "gay", "lesbian", "queer", "transgender", "homosexuality"],
     re: /lgbt|gay|lesbian|queer|transgender|homosexual/,
   },
+  // vetëm tema gay (si El Príncipe, El Cautivo), pa lesbike/female
   gay: {
     queries: ["gay", "gay theme", "gay interest", "male homosexuality", "homosexuality", "gay relationship", "gay romance"],
     re: /gay|homosexual/,
@@ -27,7 +30,9 @@ const KW = {
   },
 };
 
+// votes = minimumi i votave (heq titujt pa vlerë), minRating = nota minimale
 const CATALOGS = [
+  // Filma koreane
   { id: "kr-film-best", type: "movie", name: "🇰🇷 Filma Koreane · Më të mirat", q: { with_origin_country: "KR" }, votes: 300 },
   { id: "kr-film-action", type: "movie", name: "🇰🇷 Filma Koreane · Aksion", q: { with_origin_country: "KR", with_genres: G.action }, votes: 100 },
   { id: "kr-film-actioncomedy", type: "movie", name: "🇰🇷 Filma Koreane · Aksion Komedi", q: { with_origin_country: "KR", with_genres: `${G.action},${G.comedy}` }, votes: 40 },
@@ -37,17 +42,26 @@ const CATALOGS = [
   { id: "kr-film-horror", type: "movie", name: "🇰🇷 Filma Koreane · Horror", q: { with_origin_country: "KR", with_genres: G.horror }, votes: 80 },
   { id: "kr-film-drama", type: "movie", name: "🇰🇷 Filma Koreane · Dramë", q: { with_origin_country: "KR", with_genres: G.drama }, votes: 150 },
 
+  // Seriale koreane
   { id: "kr-series-best", type: "series", name: "🇰🇷 Seriale Koreane · Më të mirat", q: { with_origin_country: "KR" }, votes: 200 },
 
+  // BL
   { id: "th-bl", type: "series", name: "🇹🇭 Thai BL · Cilësore", q: { with_origin_country: "TH" }, kw: "bl", votes: 15, minRating: 7.5 },
   { id: "kr-bl", type: "series", name: "🇰🇷 Korean BL · Cilësore", q: { with_origin_country: "KR" }, kw: "bl", votes: 10, minRating: 7 },
 
+  // Amerika Latine
   { id: "latam-film-best", type: "movie", name: "🌎 Amerika Latine · Filmat më të mirë", q: { with_origin_country: LATAM }, votes: 300 },
   { id: "latam-series-best", type: "series", name: "🌎 Amerika Latine · Serialet më të mira", q: { with_origin_country: LATAM }, votes: 100 },
   { id: "latam-queer", type: "movie", name: "🏳️‍🌈 Amerika Latine · Queer Movies", q: { with_origin_country: LATAM }, kw: "gay", votes: 8, minRating: 6 },
 
-  { id: "queer-world", type: "movie", name: "🏳️‍🌈 Gay / Queer Cinema · Më të mirat", q: {}, kw: "lgbt", votes: 200, minRating: 6.5 },
+  // Gay / Queer bota (vetëm etiketat gay, pa lesbike/trans)
+  { id: "queer-world", type: "movie", name: "🏳️‍🌈 Gay / Queer Cinema · Më të mirat", q: {}, kw: "gay", votes: 100, minRating: 6.5 },
 ];
+
+// Tituj që nuk i dua (shtoji këtu ID-të IMDb)
+const BLOCK = new Set([
+  "tt6966692", // Green Book
+]);
 
 const manifest = {
   id: "org.im.katalogu.auto",
@@ -65,6 +79,7 @@ const manifest = {
   })),
 };
 
+// ---------- TMDB + cache ----------
 const cache = new Map();
 function cached(key, fn) {
   const hit = cache.get(key);
@@ -108,13 +123,14 @@ function imdbId(type, id) {
   });
 }
 
+// ---------- Handler ----------
 const builder = new addonBuilder(manifest);
 
 builder.defineCatalogHandler(async ({ type, id, extra }) => {
   const c = CATALOGS.find((x) => x.id === id && x.type === type);
   if (!c) return { metas: [] };
 
-  const page = Math.floor(Number((extra && extra.skip) || 0) / 20) + 1;
+  const page = Math.floor((Number((extra && extra.skip) || 0)) / 20) + 1;
 
   try {
     const params = {
@@ -126,6 +142,7 @@ builder.defineCatalogHandler(async ({ type, id, extra }) => {
       page,
     };
     if (c.minRating) params["vote_average.gte"] = c.minRating;
+    params[type === "movie" ? "primary_release_date.gte" : "first_air_date.gte"] = `${MIN_YEAR}-01-01`;
     if (c.kw) {
       const ids = await resolveKeywords(c.kw);
       if (!ids) return { metas: [] };
@@ -140,7 +157,7 @@ builder.defineCatalogHandler(async ({ type, id, extra }) => {
       await Promise.all(
         (data.results || []).map(async (it) => {
           const imdb = await imdbId(type, it.id).catch(() => null);
-          if (!imdb) return null;
+          if (!imdb || BLOCK.has(imdb)) return null;
           return {
             id: imdb,
             type,
