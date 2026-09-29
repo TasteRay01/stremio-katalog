@@ -10,51 +10,67 @@ const API = "https://api.themoviedb.org/3";
 const IMG = "https://image.tmdb.org/t/p/w342";
 const TTL = 6 * 60 * 60 * 1000; // rifreskim çdo 6 orë
 const MIN_YEAR = 1990; // nuk shfaqen tituj para këtij viti
+const NO_KIDS = "16,10751,10762"; // përjashton animacion, familje dhe fëmijë
 
 const LATAM = "MX|AR|BR|CO|CL|PE|UY|VE|EC|BO|PY|CU|CR|PA|DO|GT|PR|HN|NI|SV";
-const G = { action: 28, comedy: 35, thriller: 53, crime: 80, horror: 27, drama: 18, romance: 10749 };
+
+// Zhanre filmash (movie) dhe serialesh (tv)
+const G = { action: 28, comedy: 35, thriller: 53, crime: 80, horror: 27, drama: 18 };
+const T = { crime: 80, mystery: 9648, scifi: 10765, adventure: 10759 };
 
 // Fjalë kyçe të TMDB që gjenden automatikisht
 const KW = {
   heist: { queries: ["heist"], re: /heist/ },
   bl: { queries: ["boys love", "boys' love"], re: /boys.{0,3}love/ },
-  lgbt: {
-    queries: ["lgbt", "gay", "lesbian", "queer", "transgender", "homosexuality"],
-    re: /lgbt|gay|lesbian|queer|transgender|homosexual/,
-  },
-  // vetëm tema gay (si El Príncipe, El Cautivo), pa lesbike/female
+  spy: { queries: ["spy", "espionage", "north korea"], re: /spy|espionage|north korea/ },
+  cartel: { queries: ["drug cartel", "cartel", "drug trafficking"], re: /cartel|drug traffick/ },
+  // vetëm tema gay (pa lesbike/female)
   gay: {
     queries: ["gay", "gay theme", "gay interest", "male homosexuality", "homosexuality", "gay relationship", "gay romance"],
     re: /gay|homosexual/,
-    not: /lesbian|female/,
+    not: /lesbian|female|bar|club|parade|pride|rights/,
   },
 };
 
-// votes = minimumi i votave (heq titujt pa vlerë), minRating = nota minimale
+// votes = minimumi i votave, minRating = nota minimale
+// with_genres: presja (,) = DHE, vija (|) = OSE
 const CATALOGS = [
-  // Filma koreane
+  // ---- Filma koreane ----
   { id: "kr-film-best", type: "movie", name: "🇰🇷 Filma Koreane · Më të mirat", q: { with_origin_country: "KR" }, votes: 300 },
   { id: "kr-film-action", type: "movie", name: "🇰🇷 Filma Koreane · Aksion", q: { with_origin_country: "KR", with_genres: G.action }, votes: 100 },
   { id: "kr-film-actioncomedy", type: "movie", name: "🇰🇷 Filma Koreane · Aksion Komedi", q: { with_origin_country: "KR", with_genres: `${G.action},${G.comedy}` }, votes: 40 },
   { id: "kr-film-thriller", type: "movie", name: "🇰🇷 Filma Koreane · Thriller", q: { with_origin_country: "KR", with_genres: G.thriller }, votes: 100 },
   { id: "kr-film-crime", type: "movie", name: "🇰🇷 Filma Koreane · Crime", q: { with_origin_country: "KR", with_genres: G.crime }, votes: 100 },
   { id: "kr-film-heist", type: "movie", name: "🇰🇷 Filma Koreane · Heist", q: { with_origin_country: "KR" }, kw: "heist", votes: 15 },
+  { id: "kr-film-spy", type: "movie", name: "🇰🇷 Filma Koreane · Spiunazh & Politikë", q: { with_origin_country: "KR" }, kw: "spy", votes: 30 },
   { id: "kr-film-horror", type: "movie", name: "🇰🇷 Filma Koreane · Horror", q: { with_origin_country: "KR", with_genres: G.horror }, votes: 80 },
   { id: "kr-film-drama", type: "movie", name: "🇰🇷 Filma Koreane · Dramë", q: { with_origin_country: "KR", with_genres: G.drama }, votes: 150 },
 
-  // Seriale koreane
+  // ---- Seriale koreane ----
   { id: "kr-series-best", type: "series", name: "🇰🇷 Seriale Koreane · Më të mirat", q: { with_origin_country: "KR" }, votes: 200 },
 
-  // BL
+  // ---- BL ----
   { id: "th-bl", type: "series", name: "🇹🇭 Thai BL · Cilësore", q: { with_origin_country: "TH" }, kw: "bl", votes: 15, minRating: 7.5 },
+  { id: "th-bl-crime", type: "series", name: "🇹🇭 Thai BL · Crime & Mister", q: { with_origin_country: "TH", with_genres: `${T.crime}|${T.mystery}` }, kw: "bl", votes: 8, minRating: 7 },
   { id: "kr-bl", type: "series", name: "🇰🇷 Korean BL · Cilësore", q: { with_origin_country: "KR" }, kw: "bl", votes: 10, minRating: 7 },
 
-  // Amerika Latine
+  // ---- Amerika Latine ----
   { id: "latam-film-best", type: "movie", name: "🌎 Amerika Latine · Filmat më të mirë", q: { with_origin_country: LATAM }, votes: 300 },
   { id: "latam-series-best", type: "series", name: "🌎 Amerika Latine · Serialet më të mira", q: { with_origin_country: LATAM }, votes: 100 },
+  { id: "latam-series-crime", type: "series", name: "🌎 Amerika Latine · Crime Seriale", q: { with_origin_country: LATAM, with_genres: T.crime }, votes: 50 },
+  { id: "cartel-series", type: "series", name: "🌎 Narcos & Kartele · Seriale", q: {}, kw: "cartel", votes: 300, minRating: 7 },
   { id: "latam-queer", type: "movie", name: "🏳️‍🌈 Amerika Latine · Queer Movies", q: { with_origin_country: LATAM }, kw: "gay", votes: 8, minRating: 6 },
 
-  // Gay / Queer bota (vetëm etiketat gay, pa lesbike/trans)
+  // ---- Spanjë ----
+  { id: "es-film-crime", type: "movie", name: "🇪🇸 Spanjë · Crime & Thriller", q: { with_origin_country: "ES", with_genres: `${G.crime}|${G.thriller}` }, votes: 300, minRating: 6.5 },
+  { id: "es-film-heist", type: "movie", name: "🇪🇸 Spanjë · Heist", q: { with_origin_country: "ES" }, kw: "heist", votes: 30 },
+  { id: "es-series-crime", type: "series", name: "🇪🇸 Spanjë · Crime & Mister Seriale", q: { with_origin_country: "ES", with_genres: `${T.crime}|${T.mystery}` }, votes: 100, minRating: 7 },
+  { id: "es-series-adventure", type: "series", name: "🇪🇸 Spanjë · Aventurë & Histori Seriale", q: { with_origin_country: "ES", with_genres: T.adventure }, votes: 60, minRating: 6.5 },
+
+  // ---- Sci-Fi / Mister ----
+  { id: "scifi-series", type: "series", name: "🚀 Sci-Fi & Mister · Seriale", q: { with_genres: `${T.scifi}|${T.mystery}` }, votes: 1500, minRating: 7.8 },
+
+  // ---- Gay / Queer bota ----
   { id: "queer-world", type: "movie", name: "🏳️‍🌈 Gay / Queer Cinema · Më të mirat", q: {}, kw: "gay", votes: 100, minRating: 6.5 },
 ];
 
@@ -65,9 +81,9 @@ const BLOCK = new Set([
 
 const manifest = {
   id: "org.im.katalogu.auto",
-  version: "1.0.0",
+  version: "1.1.0",
   name: "Katalogu Im",
-  description: "Katalogë automatikë: kinema koreane, BL, Amerika Latine dhe queer cinema",
+  description: "Katalogë automatikë: kinema koreane, BL, Amerika Latine, Spanjë, sci-fi dhe queer cinema",
   resources: ["catalog"],
   types: ["movie", "series"],
   idPrefixes: ["tt"],
@@ -130,7 +146,7 @@ builder.defineCatalogHandler(async ({ type, id, extra }) => {
   const c = CATALOGS.find((x) => x.id === id && x.type === type);
   if (!c) return { metas: [] };
 
-  const page = Math.floor((Number((extra && extra.skip) || 0)) / 20) + 1;
+  const page = Math.floor(Number((extra && extra.skip) || 0) / 20) + 1;
 
   try {
     const params = {
@@ -138,6 +154,7 @@ builder.defineCatalogHandler(async ({ type, id, extra }) => {
       sort_by: "vote_average.desc",
       "vote_count.gte": c.votes,
       include_adult: "false",
+      without_genres: NO_KIDS,
       language: "en-US",
       page,
     };
