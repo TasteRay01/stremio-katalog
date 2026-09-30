@@ -8,8 +8,9 @@ if (!KEY) {
 
 const API = "https://api.themoviedb.org/3";
 const IMG = "https://image.tmdb.org/t/p/w342";
+const BG = "https://image.tmdb.org/t/p/w780";
 const TTL = 6 * 60 * 60 * 1000; // rifreskim çdo 6 orë
-const MIN_YEAR = 1990; // nuk shfaqen tituj para këtij viti
+const MIN_YEAR = 2015; // nuk shfaqen tituj para këtij viti
 const NO_KIDS = "16,10751,10762"; // përjashton animacion, familje dhe fëmijë
 
 const LATAM = "MX|AR|BR|CO|CL|PE|UY|VE|EC|BO|PY|CU|CR|PA|DO|GT|PR|HN|NI|SV";
@@ -20,7 +21,10 @@ const T = { crime: 80, mystery: 9648, scifi: 10765, adventure: 10759 };
 
 // Fjalë kyçe të TMDB që gjenden automatikisht
 const KW = {
-  heist: { queries: ["heist"], re: /heist/ },
+  heist: {
+    queries: ["heist", "robbery", "bank robbery", "con artist", "thief", "burglary", "caper", "swindle"],
+    re: /heist|robbery|burglar|thie|con artist|caper|swindl/,
+  },
   bl: { queries: ["boys love", "boys' love"], re: /boys.{0,3}love/ },
   spy: { queries: ["spy", "espionage", "north korea"], re: /spy|espionage|north korea/ },
   cartel: { queries: ["drug cartel", "cartel", "drug trafficking"], re: /cartel|drug traffick/ },
@@ -41,7 +45,7 @@ const CATALOGS = [
   { id: "kr-film-actioncomedy", type: "movie", name: "🇰🇷 Filma Koreane · Aksion Komedi", q: { with_origin_country: "KR", with_genres: `${G.action},${G.comedy}` }, votes: 40 },
   { id: "kr-film-thriller", type: "movie", name: "🇰🇷 Filma Koreane · Thriller", q: { with_origin_country: "KR", with_genres: G.thriller }, votes: 100 },
   { id: "kr-film-crime", type: "movie", name: "🇰🇷 Filma Koreane · Crime", q: { with_origin_country: "KR", with_genres: G.crime }, votes: 100 },
-  { id: "kr-film-heist", type: "movie", name: "🇰🇷 Filma Koreane · Heist", q: { with_origin_country: "KR" }, kw: "heist", votes: 15 },
+  { id: "kr-film-heist", type: "movie", name: "🇰🇷 Filma Koreane · Heist", q: { with_origin_country: "KR" }, kw: "heist", votes: 5 },
   { id: "kr-film-spy", type: "movie", name: "🇰🇷 Filma Koreane · Spiunazh & Politikë", q: { with_origin_country: "KR" }, kw: "spy", votes: 30 },
   { id: "kr-film-horror", type: "movie", name: "🇰🇷 Filma Koreane · Horror", q: { with_origin_country: "KR", with_genres: G.horror }, votes: 80 },
   { id: "kr-film-drama", type: "movie", name: "🇰🇷 Filma Koreane · Dramë", q: { with_origin_country: "KR", with_genres: G.drama }, votes: 150 },
@@ -63,7 +67,7 @@ const CATALOGS = [
 
   // ---- Spanjë ----
   { id: "es-film-crime", type: "movie", name: "🇪🇸 Spanjë · Crime & Thriller", q: { with_origin_country: "ES", with_genres: `${G.crime}|${G.thriller}` }, votes: 300, minRating: 6.5 },
-  { id: "es-film-heist", type: "movie", name: "🇪🇸 Spanjë · Heist", q: { with_origin_country: "ES" }, kw: "heist", votes: 30 },
+  { id: "es-film-heist", type: "movie", name: "🇪🇸 Spanjë · Heist", q: { with_origin_country: "ES" }, kw: "heist", votes: 10 },
   { id: "es-series-crime", type: "series", name: "🇪🇸 Spanjë · Crime & Mister Seriale", q: { with_origin_country: "ES", with_genres: `${T.crime}|${T.mystery}` }, votes: 100, minRating: 7 },
   { id: "es-series-adventure", type: "series", name: "🇪🇸 Spanjë · Aventurë & Histori Seriale", q: { with_origin_country: "ES", with_genres: T.adventure }, votes: 60, minRating: 6.5 },
 
@@ -180,6 +184,8 @@ builder.defineCatalogHandler(async ({ type, id, extra }) => {
             type,
             name: it.title || it.name,
             poster: it.poster_path ? IMG + it.poster_path : undefined,
+            posterShape: "poster",
+            background: it.backdrop_path ? BG + it.backdrop_path : undefined,
             releaseInfo: (it.release_date || it.first_air_date || "").slice(0, 4),
             description: it.overview,
           };
